@@ -63,26 +63,6 @@ static int load()
     return (i == 16);
 }
 
-/** condition_cut
- * Check a condition and cut if true. Prompts user for condition value if it is
- * not known (-1).
- *
- * @param cond user-readable condition string (fed to prompt)
- * @param var  container for condition value
- */
-static void condition_cut(const char* cond, int* var)
-{
-    if (*var == -1) {
-        *var = (prompt_char(cond, "yn", 0) == 'y');
-    }
-
-    if (*var == 1) {
-        puts("Cut");
-    } else {
-        puts("Do not cut");
-    }
-}
-
 /** app_complex_wires
  * Application function for the Complex Wires/Wire 2 module. Simply reads the
  * wire description from STDIN and tells user to cut or not. Prompts user for
@@ -97,12 +77,12 @@ static void condition_cut(const char* cond, int* var)
  * @note This temporarily unsets ICANON for STDIN. Ctrl-C-ing here might leave
  *       the tty in a unexpected state.
  */
-int app_complex_wires(struct bomb* bomb)
+int app_complex_wires(bomb_t *bomb)
 {
-    char c;
-    struct termios config;
+    struct wire current;
+    char action;
+    int i;
 
-    int serial = -1;
     int parallel = -1;
 
     if (!load()) {
@@ -110,14 +90,12 @@ int app_complex_wires(struct bomb* bomb)
     }
 
     while (1) {
-        struct wire current;
-        current.has_red =  (prompt_char("Red ", "yn", 0) == 'y');
-        current.has_blue = (prompt_char("Blue", "yn", 0) == 'y');
-        current.has_star = (prompt_char("Star", "yn", 0) == 'y');
-        current.has_led =  (prompt_char("LED ", "yn", 0) == 'y');
 
-        char action;
-        int i;
+        current.has_red =  prompt_yesno("Red ");
+        current.has_blue = prompt_yesno("Blue");
+        current.has_star = prompt_yesno("Star");
+        current.has_led =  prompt_yesno("LED ");
+
         for (i = 0; i < 16; i++) {
             if (memcmp(&current, &wires[i], 4 * sizeof(int)) == 0) {
                 action = wires[i].action;
@@ -126,31 +104,26 @@ int app_complex_wires(struct bomb* bomb)
         }
 
         switch (action) {
-            case 'C':
-                puts("Cut");
-                break;
-            case 'D':
-                puts("Do not cut");
-                break;
             case 'S':
-                condition_cut("Is the last digit of the serial number even?", &serial);
+                action = (bomb_serial_ends_even(bomb)) ? 'C' : 'D';
                 break;
-            case 'P':
-                condition_cut("Does the bomb have a parallel port?", &parallel);
-                break;
+
             case 'B':
-                if (bomb->batteries == -1) {
-                    bomb->batteries = prompt_char("How many batteries does the bomb have?", "0123456789", 1) - '0';
-                }
-                if (bomb->batteries >= 2) {
-                    puts("Cut");
-                } else {
-                    puts("Do not cut");
-                }
+                action = (bomb_battery_count(bomb) >= 2) ? 'C' : 'D';
+                break;
+
+            case 'P':
+                action = (bomb_has_feature(bomb, "parallel")) ? 'C' : 'D';
                 break;
         }
 
-        if (prompt_char("Again?", "yn", 0) == 'n') {
+        if (action == 'C') {
+            puts("Cut");
+        } else {
+            puts("Do not cut");
+        }
+
+        if (prompt_yesno("Again?")) {
             break;
         }
     }

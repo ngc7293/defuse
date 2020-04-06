@@ -20,17 +20,24 @@
 
 #include "bomb.h"
 
-int app_help(struct bomb* bomb);
-int app_complex_wires(struct bomb* bomb);
-int app_password(struct bomb* bomb);
+/* Commands */
+int app_help(bomb_t *bomb);
+int app_reset(bomb_t *bomb);
+
+/* Modules */
+int app_complex_wires(bomb_t *bomb);
+int app_password(bomb_t *bomb);
+int app_wires(bomb_t *bomb);
 
 struct app {
     const char* name;
-    int (*function)(struct bomb* bomb);
+    int (*function)(bomb_t *);
 } apps[] = {
     { "help", app_help },
+    { "reset", app_reset },
     { "complex_wires", app_complex_wires },
     { "password", app_password },
+    { "wires", app_wires },
     { NULL, NULL }
 };
 

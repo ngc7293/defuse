@@ -3,32 +3,17 @@
 #include <string.h>
 
 #include <assert.h>
+#include <pthread.h>
 
 #include "bomb.h"
+#include "util.h"
 
 struct word {
     char text[6];
     struct word* next;
 };
 
-struct word* head = NULL;
-
-/** contains
- * @param str haystack
- * @param c   needle
- * @return 1 if c is in str, else 0
- */
-static int contains(char* str, char c)
-{
-    int i = 0;
-    for (; str[i] != 0; i++) {
-        if (str[i] == c) {
-            return 1;
-        }
-    }
-
-    return 0;
-}
+static struct word* head;
 
 /** load
  * Loads words from a conf file into a linked-list.
@@ -76,7 +61,7 @@ static struct word *load()
  *
  * @param head start of linked-list of struct word
  */
-static void unload()
+static void unload(void* args)
 {
     struct word *current = head;
     struct word *temp;
@@ -100,7 +85,7 @@ static void unload()
  *
  * @return EXIT_SUCCESS or EXIT_FAILURE.
  */
-int app_password(struct bomb* bomb)
+int app_password(bomb_t *bomb)
 {
     static const char* positions[] = { "first", "second", "third", "fourth", "fifth" };
 
@@ -108,12 +93,10 @@ int app_password(struct bomb* bomb)
     char line[128];
     int pos;
 
-    assert(head == NULL);
-
     if ((head = load()) == NULL) {
         return EXIT_FAILURE;
     }
-    atexit(unload);
+    pthread_cleanup_push(unload, NULL);
 
     for (pos = 0; pos < 5; pos++) {
         printf("%s position: ", positions[pos]);
@@ -126,8 +109,7 @@ int app_password(struct bomb* bomb)
             if (!contains(line, current -> text[pos])) {
                 if (current == head) {
                     head = current->next;
-                }
-                else {
+                } else {
                     previous->next = current -> next;
                 }
 
@@ -152,5 +134,6 @@ int app_password(struct bomb* bomb)
         }
     }
 
+    pthread_cleanup_pop(1);
     return (pos < 5 ? EXIT_SUCCESS : EXIT_FAILURE);  // Broke out of for-loop
 }

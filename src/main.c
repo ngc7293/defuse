@@ -7,22 +7,10 @@
 
 #include "apps.h"
 #include "bomb.h"
+#include "input.h"
 
 static pthread_t* current_thread;
-
-/** app_help
- * Prints all available functions
- * @param bomb (unused)
- * @return EXIT_SUCCESS
- */
-int app_help(struct bomb* bomb)
-{
-    for (int i = 0; apps[i].name != NULL; i++) {
-        puts(apps[i].name);
-    }
-
-    return EXIT_SUCCESS;
-}
+static bomb_t* current_bomb;
 
 /** sigint_thread_handler
  * Cancels current thread
@@ -33,6 +21,38 @@ void sigint_thread_handler(int signum)
 {
     pthread_cancel(*current_thread);
     putc('\n', stdout);
+    canon_tty();
+}
+
+/** sigint_main_handler
+ * Handles sigint in current thread
+ *
+ * @param signum (unused)
+ */
+void sigint_main_handler(int signum)
+{
+    bomb_destroy(current_bomb);
+    exit(EXIT_SUCCESS);
+}
+
+/** app_help
+ * Prints all available functions
+ * @param bomb (unused)
+ * @return EXIT_SUCCESS
+ */
+int app_help(bomb_t *bomb)
+{
+    for (int i = 0; apps[i].name != NULL; i++) {
+        puts(apps[i].name);
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int app_reset(bomb_t *bomb)
+{
+    bomb_reset(bomb);
+    return EXIT_SUCCESS;
 }
 
 /** thread_run
@@ -46,8 +66,8 @@ void* thread_run(void* arguments)
 {
     struct {
         int* rc;
-        int (*function)(struct bomb*);
-        struct bomb *bomb;
+        int (*function)(bomb_t*);
+        bomb_t *bomb;
     } *args = arguments;
 
     *(args->rc) = args->function(args->bomb);
@@ -63,10 +83,10 @@ void* thread_run(void* arguments)
  *
  * @return the applications exit code, or EXIT_FAILURE if none matched name.
  */
-int run(char* name, struct bomb* bomb)
+int run(char* name, bomb_t *bomb)
 {
     int i;
-    int (*function)(struct bomb*) = NULL;
+    int (*function)(bomb_t*) = NULL;
     pthread_t thread;
 
     for (i = 0; apps[i].name != NULL; i++) {
@@ -80,8 +100,8 @@ int run(char* name, struct bomb* bomb)
         int rc = EXIT_FAILURE;
         struct {
             int* rc;
-            int (*function)(struct bomb*);
-            struct bomb* bomb;
+            int (*function)(bomb_t*);
+            bomb_t *bomb;
         } args = { &rc, function, bomb };
 
         pthread_create(&thread, NULL, thread_run, (void*)&args);
@@ -90,7 +110,7 @@ int run(char* name, struct bomb* bomb)
 
         pthread_join(thread, NULL);
         current_thread = NULL;
-        signal(SIGINT, SIG_DFL);
+        signal(SIGINT, sigint_main_handler);
 
         return rc;
     }
@@ -105,8 +125,8 @@ int main(int argc, const char* argv[])
     char *tok;
     int rc = 0;
 
-    struct bomb bomb;
-    bomb.batteries = -1;
+    bomb_t* bomb = current_bomb = bomb_create();
+    signal(SIGINT, sigint_main_handler);
 
     while (1) {
         if (rc != EXIT_SUCCESS) {
@@ -127,8 +147,9 @@ int main(int argc, const char* argv[])
             break;
         }
 
-        rc = run(line, &bomb);
+        rc = run(line, bomb);
     }
 
+    bomb_destroy(bomb);
     return EXIT_SUCCESS;
 }

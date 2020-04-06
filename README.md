@@ -18,6 +18,9 @@ I assume not since it is based on the publicly available
 
 - CMake 3.13+
 - Ninja (Optionnal)
+- pthread
+
+Current implemented only works on Unix (includes `unistd.h` and `termios.h`)
 
 ## Building
 
