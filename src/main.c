@@ -2,43 +2,111 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "apps.h"
+#include <signal.h>
+#include <pthread.h>
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "apps.h"
+#include "bomb.h"
+
+static pthread_t* current_thread;
 
 /** app_help
  * Prints all available functions
- * @param args (unused)
+ * @param bomb (unused)
  * @return EXIT_SUCCESS
  */
-int app_help(char* args[])
+int app_help(struct bomb* bomb)
 {
-    int i = 0;
-
-    while (apps[i].name != NULL) {
+    for (int i = 0; apps[i].name != NULL; i++) {
         puts(apps[i].name);
-        i++;
     }
 
     return EXIT_SUCCESS;
 }
 
-/** app_exit
- * Exits with code EXIT_SUCCESS.
- * @param args
+/** sigint_thread_handler
+ * Cancels current thread
+ *
+ * @param signum (unused)
  */
-int app_exit(char* args[])
+void sigint_thread_handler(int signum)
 {
-    exit(EXIT_SUCCESS);
+    pthread_cancel(*current_thread);
+    putc('\n', stdout);
+}
+
+/** thread_run
+ * Entry function for "application" (module) threads. Provides them with a
+ * simpler call  signature (int return code, bomb* argument).
+ *
+ * @param arguments the argument structure passed to pthread_create. MUST MATCH
+ *                  the structure created in `run` EXACTLY.
+ */
+void* thread_run(void* arguments)
+{
+    struct {
+        int* rc;
+        int (*function)(struct bomb*);
+        struct bomb *bomb;
+    } *args = arguments;
+
+    *(args->rc) = args->function(args->bomb);
+    return NULL;
+}
+
+/** run
+ * Run an application function in a subthread and returns with the function's
+ * exit code.
+ *
+ * @param name application function's name
+ * @param bomb bomb struct passed to application
+ *
+ * @return the applications exit code, or EXIT_FAILURE if none matched name.
+ */
+int run(char* name, struct bomb* bomb)
+{
+    int i;
+    int (*function)(struct bomb*) = NULL;
+    pthread_t thread;
+
+    for (i = 0; apps[i].name != NULL; i++) {
+        if (strcmp(name, apps[i].name) == 0) {
+            function = apps[i].function;
+            break;
+        }
+    }
+
+    if (function) {
+        int rc = EXIT_FAILURE;
+        struct {
+            int* rc;
+            int (*function)(struct bomb*);
+            struct bomb* bomb;
+        } args = { &rc, function, bomb };
+
+        pthread_create(&thread, NULL, thread_run, (void*)&args);
+        current_thread = &thread;
+        signal(SIGINT, sigint_thread_handler);
+
+        pthread_join(thread, NULL);
+        current_thread = NULL;
+        signal(SIGINT, SIG_DFL);
+
+        return rc;
+    }
+    else {
+        return EXIT_FAILURE;
+    }
 }
 
 int main(int argc, const char* argv[])
 {
     char line[128];
     char *tok;
-    int (*function)(char*[]);
-    int rc = 0, i;
+    int rc = 0;
+
+    struct bomb bomb;
+    bomb.batteries = -1;
 
     while (1) {
         if (rc != EXIT_SUCCESS) {
@@ -55,19 +123,11 @@ int main(int argc, const char* argv[])
             continue;
         }
 
-        function = NULL;
-        for (i = 0; apps[i].name != NULL; i++) {
-            if (strcmp(line, apps[i].name) == 0) {
-                function = apps[i].function;
-                break;
-            }
+        if (strcmp(line, "exit") == 0) {
+            break;
         }
 
-        if (function) {
-            rc = function(NULL);
-        } else {
-            rc = -1;
-        }
+        rc = run(line, &bomb);
     }
 
     return EXIT_SUCCESS;

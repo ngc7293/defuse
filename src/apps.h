@@ -18,16 +18,16 @@
 
 #include <stdlib.h>
 
-int app_exit(char* args[]);
-int app_help(char* args[]);
-int app_complex_wires(char* args[]);
-int app_password(char* args[]);
+#include "bomb.h"
+
+int app_help(struct bomb* bomb);
+int app_complex_wires(struct bomb* bomb);
+int app_password(struct bomb* bomb);
 
 struct app {
     const char* name;
-    int (*function)(char*[]);
+    int (*function)(struct bomb* bomb);
 } apps[] = {
-    { "exit", app_exit },
     { "help", app_help },
     { "complex_wires", app_complex_wires },
     { "password", app_password },

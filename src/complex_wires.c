@@ -5,6 +5,9 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "bomb.h"
+#include "input.h"
+
 struct wire {
     int has_red;
     int has_blue;
@@ -60,34 +63,6 @@ static int load()
     return (i == 16);
 }
 
-/** prompt
- * Displays prompt to user, and requests single-character input until valid
- *
- * @param str    prompt to display
- * @param accept acceptable characters
- *
- * @return user input
- *
- * @note this functions assumes ICANON is unset on STDIN.
- */
-static char prompt(const char* str, const char* accept)
-{
-    char c;
-    int i;
-
-    while (1) {
-        fputs(str, stdout);
-        c = fgetc(stdin);
-        fputc('\n', stdout);
-
-        for (i = 0; accept[i]; i++) {
-            if (accept[i] == c) {
-                return c;
-            }
-        }
-    }
-}
-
 /** condition_cut
  * Check a condition and cut if true. Prompts user for condition value if it is
  * not known (-1).
@@ -98,13 +73,12 @@ static char prompt(const char* str, const char* accept)
 static void condition_cut(const char* cond, int* var)
 {
     if (*var == -1) {
-        *var = (prompt(cond, "yn") == 'y');
+        *var = (prompt_char(cond, "yn", 0) == 'y');
     }
 
     if (*var == 1) {
         puts("Cut");
-    }
-    else {
+    } else {
         puts("Do not cut");
     }
 }
@@ -115,36 +89,32 @@ static void condition_cut(const char* cond, int* var)
  * extra conditions (serial/parallel port/batteries) if needed, but remembers
  * the reply (only asks once).
  *
- * @param args (unused)
+ * @param bomb the current bomb. Will check/prompt for serial number, parallel
+ *             port & battery count
  *
  * @return EXIT_SUCCESS or EXIT_FAILURE
  *
  * @note This temporarily unsets ICANON for STDIN. Ctrl-C-ing here might leave
  *       the tty in a unexpected state.
  */
-int app_complex_wires(char* args[])
+int app_complex_wires(struct bomb* bomb)
 {
     char c;
     struct termios config;
 
     int serial = -1;
     int parallel = -1;
-    int batteries = -1;
 
     if (!load()) {
         return EXIT_FAILURE;
     }
 
-    tcgetattr(STDIN_FILENO, &config);
-    config.c_lflag &= ~(ICANON);
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &config);
-
     while (1) {
         struct wire current;
-        current.has_red =  (prompt("Red  [y/n]: ", "yn") == 'y');
-        current.has_blue = (prompt("Blue [y/n]: ", "yn") == 'y');
-        current.has_star = (prompt("Star [y/n]: ", "yn") == 'y');
-        current.has_led =  (prompt("LED  [y/n]: ", "yn") == 'y');
+        current.has_red =  (prompt_char("Red ", "yn", 0) == 'y');
+        current.has_blue = (prompt_char("Blue", "yn", 0) == 'y');
+        current.has_star = (prompt_char("Star", "yn", 0) == 'y');
+        current.has_led =  (prompt_char("LED ", "yn", 0) == 'y');
 
         char action;
         int i;
@@ -163,24 +133,27 @@ int app_complex_wires(char* args[])
                 puts("Do not cut");
                 break;
             case 'S':
-                condition_cut("Is the last digit of the serial number even? [yn]: ", &serial);
+                condition_cut("Is the last digit of the serial number even?", &serial);
                 break;
             case 'P':
-                condition_cut("Does the bomb have a parallel port? [yn]: ", &parallel);
+                condition_cut("Does the bomb have a parallel port?", &parallel);
                 break;
             case 'B':
-                condition_cut("Does the bomb two or more batteries? [yn]: ", &batteries);
+                if (bomb->batteries == -1) {
+                    bomb->batteries = prompt_char("How many batteries does the bomb have?", "0123456789", 1) - '0';
+                }
+                if (bomb->batteries >= 2) {
+                    puts("Cut");
+                } else {
+                    puts("Do not cut");
+                }
                 break;
         }
 
-        if (prompt("Again? [yn]: ", "yn") == 'n') {
+        if (prompt_char("Again?", "yn", 0) == 'n') {
             break;
         }
     }
-
-    tcgetattr(STDIN_FILENO, &config);
-    config.c_lflag |= ICANON;
-    tcsetattr(STDIN_FILENO, TCSAFLUSH, &config);
 
     return EXIT_SUCCESS;
 }

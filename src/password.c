@@ -2,10 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <assert.h>
+
+#include "bomb.h"
+
 struct word {
     char text[6];
     struct word* next;
 };
+
+struct word* head = NULL;
 
 /** contains
  * @param str haystack
@@ -34,7 +40,7 @@ static int contains(char* str, char c)
  */
 static struct word *load()
 {
-    struct word *head = NULL;
+    head = NULL;
     struct word *current = head;
 
     char line[128];
@@ -57,7 +63,7 @@ static struct word *load()
             current = current -> next;
         }
 
-        strncpy(current -> text, line, 5);
+        strcpy(current -> text, line);
         current -> next = NULL;
     }
 
@@ -70,7 +76,7 @@ static struct word *load()
  *
  * @param head start of linked-list of struct word
  */
-static void unload(struct word* head)
+static void unload()
 {
     struct word *current = head;
     struct word *temp;
@@ -80,6 +86,8 @@ static void unload(struct word* head)
         current = current -> next;
         free(temp);
     }
+
+    head = NULL;
 }
 
 /** app_password
@@ -92,17 +100,20 @@ static void unload(struct word* head)
  *
  * @return EXIT_SUCCESS or EXIT_FAILURE.
  */
-int app_password(char* args[])
+int app_password(struct bomb* bomb)
 {
     static const char* positions[] = { "first", "second", "third", "fourth", "fifth" };
 
-    struct word *head, *current, *previous, *next;
+    struct word *current, *previous, *next;
     char line[128];
     int pos;
+
+    assert(head == NULL);
 
     if ((head = load()) == NULL) {
         return EXIT_FAILURE;
     }
+    atexit(unload);
 
     for (pos = 0; pos < 5; pos++) {
         printf("%s position: ", positions[pos]);
@@ -141,6 +152,5 @@ int app_password(char* args[])
         }
     }
 
-    unload(head);
     return (pos < 5 ? EXIT_SUCCESS : EXIT_FAILURE);  // Broke out of for-loop
 }
