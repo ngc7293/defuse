@@ -42,8 +42,17 @@ void sigint_main_handler(int signum)
  */
 int app_help(bomb_t *bomb)
 {
+    int (*previous)(bomb_t* bomb) = NULL;
+
     for (int i = 0; apps[i].name != NULL; i++) {
-        puts(apps[i].name);
+        if (apps[i].function == previous) {
+            printf("    %s\n", apps[i].name);
+        }
+        else {
+            puts(apps[i].name);
+        }
+
+        previous = apps[i].function;
     }
 
     return EXIT_SUCCESS;

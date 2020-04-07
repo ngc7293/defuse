@@ -27,6 +27,7 @@ int app_reset(bomb_t *bomb);
 /* Modules */
 int app_complex_wires(bomb_t *bomb);
 int app_password(bomb_t *bomb);
+int app_sequence(bomb_t* bomb);
 int app_wires(bomb_t *bomb);
 
 struct app {
@@ -36,7 +37,10 @@ struct app {
     { "help", app_help },
     { "reset", app_reset },
     { "complex_wires", app_complex_wires },
+    { "wires2", app_complex_wires },
     { "password", app_password },
+    { "pass", app_password },
+    { "sequence", app_sequence },
     { "wires", app_wires },
     { NULL, NULL }
 };

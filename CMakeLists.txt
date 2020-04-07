@@ -2,12 +2,13 @@ cmake_minimum_required(VERSION 3.13.0)
 project(defuse)
 
 set( SOURCES
-    src/main.c
-    src/password.c
+    src/bomb.c
     src/complex_wires.c
     src/input.c
+    src/main.c
+    src/password.c
+    src/sequence.c
     src/util.c
-    src/bomb.c
     src/wires.c
 )
 

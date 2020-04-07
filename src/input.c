@@ -77,7 +77,7 @@ int prompt_digit(const char* display, int min, int max)
     char display_range[4] = { (min + '0'), '-', (max + '0'), 0 };
     int i = 0;
 
-    for (; i < (max - min); i++) {
+    for (; i <= (max - min); i++) {
         range[i] = (i + min) + ('0');
     }
 

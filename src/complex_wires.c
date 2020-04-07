@@ -7,6 +7,7 @@
 
 #include "bomb.h"
 #include "input.h"
+#include "util.h"
 
 struct wire {
     int has_red;
@@ -15,21 +16,6 @@ struct wire {
     int has_led;
     char action;
 } wires[16];
-
-/** is_comment
- * @param line a string
- * @return 1 if line starts with '#' (ignoring whitespace), 0 otherwise
- */
-static int is_comment(char* line)
-{
-    int i;
-    for (i = 0; line[i]; i++) {
-        if (line[i] != ' ' && line[i] != '\t' && line[i] != '\n') {
-            return (line[i] == '#');
-        }
-    }
-    return 0;
-}
 
 /** load
  * Fills the wires array with the correct conditions/actions. Reads data from
@@ -52,7 +38,7 @@ static int load()
             continue;
         }
 
-        if (sscanf(line, "%d %d %d %d %c", &wires[i].has_red, &wires[i].has_blue, &wires[i].has_star, &wires[i].has_led, &wires[i].action) == EOF) {
+        if (sscanf(line, "%d %d %d %d %c", &wires[i].has_red, &wires[i].has_blue, &wires[i].has_star, &wires[i].has_led, &wires[i].action) != 5) {
             continue;
         }
 
@@ -123,7 +109,7 @@ int app_complex_wires(bomb_t *bomb)
             puts("Do not cut");
         }
 
-        if (prompt_yesno("Again?")) {
+        if (!prompt_yesno("Again?")) {
             break;
         }
     }
